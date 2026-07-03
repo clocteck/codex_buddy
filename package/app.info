@@ -1,0 +1,4 @@
+name = Codex Buddy
+entry = main.lua
+icon = main.png
+description = Codex desktop buddy
