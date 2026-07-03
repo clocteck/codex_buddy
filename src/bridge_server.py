@@ -50,6 +50,19 @@ def compact_text(value, limit=96):
     return text[: max(0, limit - 1)] + "..."
 
 
+DEVICE_TEXT_INT_FIELDS = {"tokens_today", "tokens", "last_tokens"}
+
+
+def device_json_value(value, key=None):
+    if key in DEVICE_TEXT_INT_FIELDS and value is not None:
+        return str(value)
+    if isinstance(value, dict):
+        return {item_key: device_json_value(item_value, item_key) for item_key, item_value in value.items()}
+    if isinstance(value, list):
+        return [device_json_value(item) for item in value]
+    return value
+
+
 def decode_args(value):
     if isinstance(value, dict):
         return value
@@ -440,6 +453,7 @@ class Handler(BaseHTTPRequestHandler):
         print("[%s] %s" % (self.log_date_time_string(), fmt % args))
 
     def send_json(self, status, value):
+        value = device_json_value(value)
         raw = json.dumps(value, ensure_ascii=False).encode("utf-8")
         self.send_response(status)
         self.send_header("content-type", "application/json; charset=utf-8")
@@ -510,7 +524,7 @@ def main():
     )
     server = ThreadingHTTPServer((args.host, args.port), Handler)
     print(f"Codex Buddy bridge listening on http://{args.host}:{args.port}")
-    print("Device default: http://192.168.0.80:8788")
+    print("Device default: http://0.0.0.0:8788")
     print(f"Codex home: {Handler.state.codex_home}")
     server.serve_forever()
 

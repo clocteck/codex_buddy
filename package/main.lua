@@ -253,16 +253,67 @@ local function set_visible(id, visible)
   set_opa(id, visible and 255 or 0)
 end
 
+local function token_int_text(value)
+  if value == nil then
+    return nil
+  end
+  local text = tostring(value)
+  local digits = text:match("^%s*(%-?%d+)%s*$") or text:match("^%s*(%-?%d+)%.0+%s*$")
+  if not digits then
+    return nil
+  end
+  local sign = ""
+  if digits:sub(1, 1) == "-" then
+    sign = "-"
+    digits = digits:sub(2)
+  end
+  digits = digits:gsub("^0+", "")
+  if digits == "" then
+    return "", "0"
+  end
+  return sign, digits
+end
+
+local function decimal_text_add_one(text)
+  local out = {}
+  local carry = 1
+  for i = #text, 1, -1 do
+    local digit = tonumber(text:sub(i, i)) + carry
+    if digit >= 10 then
+      digit = digit - 10
+      carry = 1
+    else
+      carry = 0
+    end
+    out[i] = tostring(digit)
+  end
+  if carry > 0 then
+    return "1" .. table.concat(out)
+  end
+  return table.concat(out)
+end
+
+local function fmt_scaled_token(digits, scale_digits, suffix)
+  local integer_len = #digits - scale_digits
+  local fixed = digits:sub(1, integer_len) .. digits:sub(integer_len + 1, integer_len + 1)
+  local round_digit = digits:sub(integer_len + 2, integer_len + 2)
+  if round_digit ~= "" and round_digit >= "5" then
+    fixed = decimal_text_add_one(fixed)
+  end
+  return fixed:sub(1, -2) .. "." .. fixed:sub(-1) .. suffix
+end
+
 local function fmt_tokens(n)
-  n = tonumber(n)
-  if not n then return "--" end
-  if n >= 1000000 then
-    return string.format("%.1fM", n / 1000000)
+  local sign, digits = token_int_text(n)
+  if not digits then return "--" end
+  if sign == "-" then return "-" .. digits end
+  if #digits > 6 then
+    return fmt_scaled_token(digits, 6, "M")
   end
-  if n >= 1000 then
-    return string.format("%.1fk", n / 1000)
+  if #digits > 3 then
+    return fmt_scaled_token(digits, 3, "k")
   end
-  return tostring(math.floor(n))
+  return digits
 end
 
 local function fmt_money(n)
@@ -672,7 +723,7 @@ local function update_ui()
   set_text(UI.title, screen_name())
   set_text(UI.state_badge, state_text(state))
   set_text_color(UI.state_badge, state_color(state))
-  set_text(UI.link, online and "linked" or "offline")
+  set_text(UI.link, online and snap.source.plan_type or "offline")
   set_text_color(UI.link, online and C.green or C.red)
   set_text(UI.quota_5h, "5h " .. tostring(math.floor(pct5h)) .. "%")
   set_text_color(UI.quota_5h, quota_color(pct5h))
@@ -873,7 +924,7 @@ local function build_ui()
 
   UI.title = label(root, 8, 17, 58, 18, "Codex", FONT_16, C.text, ALIGN_LEFT)
   UI.state_badge = label(root, 70, 19, 44, 14, "SLEEP", FONT_10, C.dim, ALIGN_LEFT)
-  UI.link = label(root, 116, 19, 48, 14, "offline", FONT_10, C.red, ALIGN_LEFT)
+  UI.link = label(root, 116, 15, 48, 14, "offline", FONT_12, C.red, ALIGN_LEFT)
   UI.quota_5h = label(root, 168, 17, 58, 18, "5h --", FONT_12, C.green, ALIGN_LEFT)
   UI.quota_7d = label(root, 230, 17, 58, 18, "7d --", FONT_12, C.green, ALIGN_LEFT)
   UI.mode_count = label(root, 294, 19, 22, 14, "1/3", FONT_10, C.dim, ALIGN_LEFT)
